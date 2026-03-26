@@ -37,6 +37,30 @@
 ### 最简单的方式
 把这个仓库链接发给小龙虾，让它安装这个 Skill。
 
+> 一般来说，小龙虾会引导或在对应环境里完成依赖安装；但如果目标环境本身没有浏览器依赖或系统 OCR 依赖，完整能力仍可能降级。
+
+### 环境前置说明
+要想让这个 Skill 在别人的 OpenClaw 环境里“完整可用”，建议至少满足：
+
+#### 基础必需
+- Python 3
+- 能执行 `python3 -m pip install -r requirements.txt`
+
+#### Browser fallback 必需
+- `playwright` Python 包
+- 已执行：
+
+```bash
+python3 -m playwright install chromium
+```
+
+如果缺少这一步，Skill 仍可能安装成功，但 **Browser fallback 不可用**，能力会退化为以 HTTP 主链为主。
+
+#### OCR 兜底可选但推荐
+- 系统已安装 `tesseract`
+
+如果缺少 `tesseract`，Skill 仍可安装和使用，但 **OCR fallback 不可用**。
+
 ### 手动使用脚本
 先准备 Python 依赖：
 
@@ -44,6 +68,8 @@
 python3 -m pip install -r requirements.txt
 python3 -m playwright install chromium
 ```
+
+如需 OCR 兜底，还需保证系统已安装 `tesseract`。
 
 然后运行：
 
@@ -79,6 +105,12 @@ python3 scripts/fetch_wechat_article.py "https://mp.weixin.qq.com/s/xxxx" --form
 
 ```bash
 python3 scripts/fetch_wechat_article.py "https://mp.weixin.qq.com/s/xxxx" --debug --artifacts-dir ./artifacts
+```
+
+运行环境预检：
+
+```bash
+python3 scripts/check_env.py
 ```
 
 ## 抓取思路
