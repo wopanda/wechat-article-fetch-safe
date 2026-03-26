@@ -10,6 +10,20 @@
 - 不自动写飞书文档
 - 不做越权调用
 
+## 当前阶段定位
+
+当前版本应视为一个 **公众号文章抓取底座 v1**：
+- 已具备 HTTP 主链、browser fallback、失败分类、debug artifacts、最小回归能力
+- 可以作为上层 Agent / Skill / MCP 的文章提取组件使用
+- 但**不追求任意文章 100% 成功率**，也**不默认启用 OCR**
+
+建议先把它用于真实上层场景，再根据高频问题定点补强，而不是继续无限细抠抓取规则。
+
+更多说明见：
+- `docs/stage-summary-v1.md`
+- `docs/integration.md`
+- `docs/decision-flow-v1.md`
+
 ## 适合谁用
 
 适合想把公众号文章：
@@ -27,7 +41,8 @@
 先准备 Python 依赖：
 
 ```bash
-python3 -m pip install requests beautifulsoup4
+python3 -m pip install -r requirements.txt
+python3 -m playwright install chromium
 ```
 
 然后运行：
@@ -42,43 +57,96 @@ python3 scripts/fetch_wechat_article.py "https://mp.weixin.qq.com/s/xxxx"
 python3 scripts/fetch_wechat_article.py "https://mp.weixin.qq.com/s/xxxx" --format markdown
 ```
 
+只跑 HTTP：
+
+```bash
+python3 scripts/fetch_wechat_article.py "https://mp.weixin.qq.com/s/xxxx" --mode http
+```
+
+强制浏览器模式：
+
+```bash
+python3 scripts/fetch_wechat_article.py "https://mp.weixin.qq.com/s/xxxx" --mode browser
+```
+
 保存到文件：
 
 ```bash
 python3 scripts/fetch_wechat_article.py "https://mp.weixin.qq.com/s/xxxx" --format markdown --output ./article.md
 ```
 
+输出调试产物（HTML / meta / screenshot）：
+
+```bash
+python3 scripts/fetch_wechat_article.py "https://mp.weixin.qq.com/s/xxxx" --debug --artifacts-dir ./artifacts
+```
+
 ## 抓取思路
 
-这套实现保留的是一个相对克制、可维护的思路：
+现在这套实现已经改成三层抓取：
 
-1. 先请求页面 HTML
+1. 先用 **微信移动 UA** 直接请求页面 HTML
 2. 优先匹配微信公众号常见正文容器
-3. 把 `data-src` 图片补成 `src`
-4. 提取标题与封面
-5. 把正文转成 Markdown
-6. 清掉常见微信尾部噪音
-7. 输出 JSON / Markdown
+3. 把 `data-src` / `data-actualsrc` 图片补成 `src`
+4. 提取标题、作者、封面、发布时间
+5. 如果静态结果太短、图片过少、段落过少，自动切到 **Playwright 真浏览器渲染**
+6. 浏览器模式会等待正文节点出现，并按页面状态自动滚动，尽量触发懒加载
+7. 自动识别一部分异常状态：`verify_required`、`captcha_or_env_check`、`article_deleted`、`content_not_found`、`anti_bot_suspected`
+8. 如果浏览器页面可见、但 DOM 提取仍明显不足，会尝试 **OCR 兜底**
+9. 把正文转成 Markdown
+10. 清掉常见微信尾部噪音
+11. 输出 JSON / Markdown
 
 一句话说，就是：
 
-**静态抓取 + 微信 DOM 定向提取 + 图片修正 + Markdown 输出**
+**HTTP 优先 + Browser fallback + OCR 最后兜底 + 微信 DOM 定向提取 + 失败分类 + Markdown 输出**
 
 ## 当前限制
 
-- 如果目标页面强依赖 JS，这种静态方式可能抓不全
-- 如果微信页面 DOM 结构变化，需要补选择器
+- 仍然不能承诺对任意文章 100% 成功
+- 如果目标页面要求人工过验证码 / verify，浏览器模式和 OCR 都可能失败
+- 如果微信页面 DOM 结构继续变化，需要补选择器
 - 如果文章本身不可公开访问，也会失败
+- OCR 兜底只适用于“页面视觉可见但 DOM 提取不足”的场景，不适合用来绕过 verify / anti-bot
+- `publish_time` 等元数据在部分文章上仍可能缺失
 
 ## 输出结果
 
-默认 JSON 字段：
+默认 JSON 会包含这些关键字段：
+- `success`
+- `status`
 - `url`
+- `final_url`
 - `title`
+- `author`
+- `publish_time`
 - `cover_image`
 - `content_markdown`
 - `images`
-- `source`
+- `fetch_method`
+- `page_status`
+- `page_signals`
+- `quality_metrics`
+- `used_browser_fallback`
+- `used_ocr_fallback`
+- `decision_path`
+- `attempts`
+
+失败时也会返回结构化状态，而不是只打印一句报错。
+
+## 回归测试
+
+已经补了最小回归框架：
+
+- 样例集：`tests/fixtures/urls.json`
+- 回归脚本：`scripts/run_regression.py`
+- 输出目录：`tests/results/`
+
+运行：
+
+```bash
+python3 scripts/run_regression.py --debug
+```
 
 ## 定位
 

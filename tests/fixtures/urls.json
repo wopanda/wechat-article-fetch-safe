@@ -1,0 +1,19 @@
+{
+  "cases": [
+    {
+      "name": "people_daily_ai_jobs",
+      "url": "https://mp.weixin.qq.com/s/f0xD4nKaQkA8tI2fKx6Vlw",
+      "expectation": "success"
+    },
+    {
+      "name": "tencent_lobster_matrix",
+      "url": "https://mp.weixin.qq.com/s/7scfaabhJETu42G-AkpZ8Q",
+      "expectation": "success"
+    },
+    {
+      "name": "invalid_deleted_sample",
+      "url": "https://mp.weixin.qq.com/s/this_should_fail_deleted_demo",
+      "expectation": "content_not_found_or_deleted"
+    }
+  ]
+}
